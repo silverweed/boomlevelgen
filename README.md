@@ -45,7 +45,7 @@ Next time you'll open BOOM, it will use the new levels. You can revert back to t
 
 Requires
 =============
-Tested with Python 2.7.5
+Tested with Python 2.7.5<br>
 BOOM is only available on MacOS, though this program will work with any OS supporting Python.
 
 License
