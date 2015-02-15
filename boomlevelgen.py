@@ -261,8 +261,15 @@ class BOOMLevel:
 		string = "\033[;%dm"
 		for i in range(0,13):
 			for j in range(0,15):
-				if self.grid[i][j] == self.FIXED:
+				g = self.grid[i][j]
+				if g == self.FIXED:
 					log_err((string % 0) + self.grid[i][j] + " ")
+				elif g == self.PLAYER1 or g == self.PLAYER2:
+					log_err((string % 33) + self.grid[i][j] + "\033[;0m ")
+				elif g == self.BREAKABLE:
+					log_err((string % 35) + self.grid[i][j] + "\033[;0m ")
+				elif g == self.BOSS:
+					log_err((string % 36) + self.grid[i][j] + "\033[;0m ")
 				else:
 					color = 31
 					for r in range(0,len(regions)):
@@ -459,7 +466,7 @@ class BOOMLevel:
 			posBosses = self.spawnBosses(self.level/10)
 			log_err("posBosses = "+str(posBosses)+"\n")
 
-		# populate grid with teleports (at least 2)
+		# populate grid with teleports (at least 2 if any)
 		rand = random.random()
 		numTeleport = 0
 		if rand > 0.333:
@@ -472,7 +479,7 @@ class BOOMLevel:
 					break
 
 		# TODO: use level symmetry
-		for i in range(0,numTeleport):
+		for i in range(0, numTeleport):
 			x = randint(0,14)
 			y = randint(0,12)
 			while self.grid[y][x] != self.BLANK:
@@ -514,6 +521,7 @@ class BOOMLevel:
 
 		# POST PROCESSING: ensure level is resolvable
 		# if bosses were generated, replace placeholder p1 tokens with 0's
+		# TODO: ensure players are in a safe starting place
 		if posBosses:
 			for (bx,by) in posBosses:
 				for i in range(by,by+3):
@@ -567,6 +575,34 @@ class BOOMLevel:
 				string += self.grid[i][j]
 		return string
 		
+	def genLastLevel(self):
+		string = ''
+		# put p1 in first line
+		rand = random.randint(0,15)
+		string += ''.join([self.BLANK for i in range(0, rand)]) + self.PLAYER1 + ''.join([self.BLANK for i in range(rand+1, 15)])
+		# line 1 is a wall separating the Big Alien Boss from p1
+		chooseWall = lambda x: self.FIXED if random.random() < x else self.BREAKABLE
+		string += self.BREAKABLE*2 + ''.join([chooseWall(0.2) for i in range(0, 11)]) + self.BREAKABLE*2
+		# lines 2-10 are 'reserved' for containing the Boss, so we only generate side walls
+		# line 2 is fixed
+		string += self.BLANK + self.BREAKABLE + self.BLANK*11 + self.BREAKABLE + self.BLANK
+		# choose line where to spawn boss
+		bossline = random.randint(4, 7)
+		for i in range(3,10):
+			middle = self.BLANK*11 if i != bossline else self.BLANK*4 + self.BOSS + self.BLANK*6
+			string += (self.BLANK if random.random() < 0.6 else chooseWall(0.3)) + chooseWall(0.3) + \
+				middle + chooseWall(0.3) + (self.BLANK if random.random() < 0.6 else chooseWall(0.3))
+		# now, mirror 
+		string += self.BLANK + self.BREAKABLE + self.BLANK*11 + self.BREAKABLE + self.BLANK
+		string += self.BREAKABLE*2 + ''.join([chooseWall(0.2) for i in range(0, 11)]) + self.BREAKABLE*2
+		rand = random.randint(0,15)
+		string += ''.join([self.BLANK for i in range(0, rand)]) + self.PLAYER2 + ''.join([self.BLANK for i in range(rand+1, 15)])
+		# fill out grid for log's sake
+		for i in range(0,13):
+			for j in range(0,15):
+				self.grid[i][j] = string[i*15+j]
+		return string
+
 	def genLevel(self):
 		self.setParameters()
 		print "  <dict>"
@@ -579,7 +615,10 @@ class BOOMLevel:
 		print "   <key>FixedBlockID</key>"
 		print "   <integer>"+str(self.fixedBlockID)+"</integer>"
 		print "   <key>GridDescString</key>"
-		print "   <string>"+self.genGridDescString()+"</string>"
+		if self.level == 80: # last level is special 
+			print "   <string>"+self.genLastLevel()+"</string>"
+		else:
+			print "   <string>"+self.genGridDescString()+"</string>"
 		print "   <key>Time</key>"
 		print "   <integer>"+str(self.time)+"</integer>"
 		print "  </dict>"
@@ -835,7 +874,12 @@ quiet = options.quiet
 
 printHeader()
 for i in range(1,81):
-	levelGen = BOOMLevel(level = i, faithfulThemes = options.faithfulThemes, faithfulEnemies = options.faithfulEnemies, difficulty = options.difficulty)
+	levelGen = BOOMLevel(
+			level = i, 
+			faithfulThemes = options.faithfulThemes, 
+			faithfulEnemies = options.faithfulEnemies,
+			difficulty = options.difficulty
+			)
 	levelGen.genLevel()
 	levelGen.printRegions()
 printFooter()
