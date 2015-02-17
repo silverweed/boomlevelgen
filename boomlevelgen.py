@@ -310,11 +310,13 @@ class BOOMLevel:
 	# At the moment, doesn't take bosses into account.
 	def securePlayer(self, coords):
 		(px, py) = coords
+		replacement = lambda: self.BLANK if random.random() < 0.8 else self.COIN
 		# check the immediate surroundings and delete enemies
 		for i in range(max(0, py - 1), min(13, py + 2)):
 			for j in range(max(0, px - 1), min(15, px + 2)):
 				if self.grid[i][j] in self.ENEMY:
-					self.grid[i][j] = self.BLANK
+					self.grid[i][j] = replacement()
+
 		# check if any enemy is too nearby in a direct line (at distance
 		# <= 4 from a player with no wall in between)
 		def dangerousUpLeft(enemy, wall):
@@ -325,7 +327,7 @@ class BOOMLevel:
 			if enemy == None: return False
 			if wall == None: return True
 			return enemy < wall
-		replacement = lambda: self.BLANK if random.random() < 0.8 else self.COIN
+
 		# Up
 		nearestEnemyY = None
 		nearestWallY = None
