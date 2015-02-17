@@ -85,15 +85,10 @@ class BOOMLevel:
 			self.time = 60+randint(0,240)
 
 	def probEnemy(self):
-		if self.symmetry == 'none':
-			den = 1.
-		else:
-			den = 1.
-		#return (1/12. + 1/6. * (self.level - 1)/79.) / den
 		if self.difficulty == 'easy':
-			return (1/30. + (self.level)**0.3 / 40.) / den
+			return (1/30. + (self.level)**0.3 / 40.) 
 		else:
-			return (1/25. + (self.level)**0.5 / 40.) / den
+			return (1/25. + (self.level)**0.5 / 40.) 
 	
 	def probCoin(self):
 		return 1/8.
@@ -167,6 +162,9 @@ class BOOMLevel:
 				by = randint(0,9)
 			
 			self.grid[by][bx] = self.BOSS
+			# fill 3x3 square required by this boss with P1 tokens. This ensures
+			# the next spawnBosses and similar will not occupy one of these cells.
+			# These placeholders will be converted to BLANK during post-processing.
 			for i in range(by,by+3):
 				for j in range(bx,bx+3):
 					if i == by and j == bx: continue
@@ -244,7 +242,7 @@ class BOOMLevel:
 		regions = []
 		for i in range(0,len(tmpregions)):
 			for j in range(i,len(tmpregions)):
-				if not i == j and tmpregions[i].connectedWith(tmpregions[j]):
+				if i != j and tmpregions[i].connectedWith(tmpregions[j]):
 					#log_err("region #"+str(i)+" is connected with #"+str(j)+"\n")
 					tmpregions[i].mergeWith(tmpregions[j])
 					tmpregions[j].clear()
@@ -307,6 +305,67 @@ class BOOMLevel:
 				if self.grid[y][rightm+1] == self.FIXED:
 					self.grid[y][rightm+1] = self.BREAKABLE
 					break
+	
+	# given a pair of player coordinates, ensure it's in a "safe enough" spot.
+	# At the moment, doesn't take bosses into account.
+	def securePlayer(self, coords):
+		(px, py) = coords
+		# check the immediate surroundings and delete enemies
+		for i in range(max(0, py - 1), min(13, py + 2)):
+			for j in range(max(0, px - 1), min(15, px + 2)):
+				if self.grid[i][j] in self.ENEMY:
+					self.grid[i][j] = self.BLANK
+		# check if any enemy is too nearby in a direct line (at distance
+		# <= 4 from a player with no wall in between)
+		def dangerousUpLeft(enemy, wall):
+			if enemy == None: return False
+			if wall == None: return True
+			return enemy > wall
+		def dangerousDownRight(enemy, wall):
+			if enemy == None: return False
+			if wall == None: return True
+			return enemy < wall
+		replacement = lambda: self.BLANK if random.random() < 0.8 else self.COIN
+		# Up
+		nearestEnemyY = None
+		nearestWallY = None
+		for i in range(max(0, py - 4), py):
+			if self.grid[i][px] in self.ENEMY:
+				nearestEnemyY = i
+			elif self.grid[i][px] == self.BREAKABLE or self.grid[i][px] == self.FIXED:
+				nearestWallY = i
+		if dangerousUpLeft(nearestEnemyY, nearestWallY):
+			self.grid[nearestEnemyY][px] = replacement()
+		# Down
+		nearestEnemyY = None
+		nearestWallY = None
+		for i in range(py + 1, min(13, py + 4)):
+			if self.grid[i][px] in self.ENEMY:
+				nearestEnemyY = i
+			elif self.grid[i][px] == self.BREAKABLE or self.grid[i][px] == self.FIXED:
+				nearestWallY = i
+		if dangerousDownRight(nearestEnemyY, nearestWallY):
+			self.grid[nearestEnemyY][px] = replacement()
+		# Left
+		nearestEnemyX = None
+		nearestWallX = None
+		for i in range(max(0, px - 4), px):
+			if self.grid[py][i] in self.ENEMY:
+				nearestEnemyX = i
+			elif self.grid[py][i] == self.BREAKABLE or self.grid[py][i] == self.FIXED:
+				nearestWallX = i
+		if dangerousUpLeft(nearestEnemyX, nearestWallX):
+			self.grid[py][nearestEnemyX] = replacement()
+		# Right
+		nearestEnemyX = None
+		nearestWallX = None
+		for i in range(px + 1, min(15, px + 4)):
+			if self.grid[py][i] in self.ENEMY:
+				nearestEnemyX = i
+			elif self.grid[py][i] == self.BREAKABLE or self.grid[py][i] == self.FIXED:
+				nearestWallX = i
+		if dangerousDownRight(nearestEnemyX, nearestWallX):
+			self.grid[py][nearestEnemyX] = replacement()
 
 			
 	def genWallsWithWalkers(self):
@@ -393,7 +452,8 @@ class BOOMLevel:
 					if self.grid[i][j] == self.BLANK and random.random() < density:
 						self.grid[i][j] = self.FIXED
 
-	def generate(self,what):
+	# generic method to generate coins, breakable or enemies
+	def generate(self, what):
 		if what == 'coins':
 			block = self.COIN
 			prob = self.probCoin()
@@ -521,7 +581,6 @@ class BOOMLevel:
 
 		# POST PROCESSING: ensure level is resolvable
 		# if bosses were generated, replace placeholder p1 tokens with 0's
-		# TODO: ensure players are in a safe starting place
 		if posBosses:
 			for (bx,by) in posBosses:
 				for i in range(by,by+3):
@@ -532,18 +591,25 @@ class BOOMLevel:
 			
 		# recheck that both players exist.
 		p1found = p2found = False
+		p1Coords = p2Coords = (None, None)
 		for i in range(0,13):
 			for j in range(0,15):
 				if self.grid[i][j] == self.PLAYER1:
 					p1found = True
+					p1Coords = (j, i)
 				elif self.grid[i][j] == self.PLAYER2:
 					p2found = True
+					p2Coords = (j, i)
 				if p1found and p2found:
 					break
 
 		if not (p1found and p2found):
 			self.printLevelGrid()
 		assert p1found and p2found
+
+		# TODO: ensure players are in a safe starting place
+		self.securePlayer(p1Coords)
+		self.securePlayer(p2Coords)
 
 		# (re-)check no spot is unreachable
 		for i in range(0,13):
