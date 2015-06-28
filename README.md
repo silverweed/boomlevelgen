@@ -51,7 +51,7 @@ BOOM is only available on MacOS, though running this program only requires Pytho
 License
 =============
     boomlevelgen.py
-    Copyright (C) 2014 Silveweed91
+    Copyright (C) 2014 Silverweed91
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
