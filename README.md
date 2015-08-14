@@ -6,6 +6,8 @@ Preamble
 ============
 BOOM is an arcade game from Factor Software, similar to Bomberman, but with slightly different (and, IMHO, better) game mechanics. If you never heard of it, I suggest you looking here: http://www.factor-software.com/boom.php?lang=en. You can buy the game for about 10$ or download it free: in the latter case you'll still have access to all the levels of the game (which are 80), you just won't be able to save the game (but, hey, for hardcore gamers this is actually a good thing!). I definitely suggest you try it.
 
+UPDATE: for an open source clone of the game working on Windows and Linux too: [see my project Lifish](https://github.com/silverweed/lifish)
+
 About this program
 =============
 BOOM levels are cool and all, but after the 10th time you finish them, you may get a little bored. There is a handy program called BOOMEdit which allows to create customized (non-random) levels (available for free here: http://www.factor-software.com/boom.php?lang=us#BOOMLevelEditor). However, creating 80 levels by hand may be kinda frustrating. If you want to go a step further, why not generating levels in a randomized way?
