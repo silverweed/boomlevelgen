@@ -54,6 +54,22 @@ tiles = {
 	'coin': '3',
 }
 
+tilecolors = {
+	'fixed': 0,
+	'player1': 33,
+	'player2': 33,
+	'breakable': 35,
+	'enemy': 34,
+	'boss': 36,
+}
+nocol = "\033[;0m"
+
+def color(n):
+	if type(n) == int:
+		return "\033[;{}m".format(n)
+	else:
+		return color(tilecolors[n])
+
 class BOOMLevel:
 	WIDTH = 15
 	HEIGHT = 13
@@ -109,6 +125,19 @@ class BOOMLevel:
 		else:
 			return enemies[randint(0, len(enemies)-1)]
 
+	@staticmethod
+	def symmetrize(px, py, sym):
+		'Returns (px, py) symmetric to given (px, py) according to sym'
+		return (BOOMLevel.WIDTH-1-px if sym in ('axial-y', 'central') else px, \
+			BOOMLevel.HEIGHT-1-py if sym in ('axial-x', 'central') else py)
+
+	@staticmethod
+	def getRangesBasedOnSym(sym):
+		'Returns the ranges to iterate based on symmetry (yrange, xrange)'
+		return (range(BOOMLevel.HEIGHT // 2 + 1) if sym in ('axial-x', 'central') else range(BOOMLevel.HEIGHT), \
+			range(BOOMLevel.WIDTH // 2 + 1) if sym == 'axial-y' else range(BOOMLevel.WIDTH))
+
+
 	def spawnPlayers(self):
 		xs = set(range(BOOMLevel.WIDTH))
 		ys = set(range(BOOMLevel.HEIGHT))
@@ -121,15 +150,11 @@ class BOOMLevel:
 		self.grid[py][px] = tiles['player1']
 		log_err("Spawned player 1 in x, y = {}, {}".format(px, py))
 
-		symmetrize = lambda px, py, sym: \
-				(BOOMLevel.WIDTH-1 if sym in ('axial-y', 'central') else px, \
-				BOOMLevel.HEIGHT-1 if sym in ('axial-x', 'central') else py)
-
 		if self.symmetry in ('axial-x', 'axial-y', 'central'):
-			px, py = symmetrize(px, py, self.symmetry)
+			px, py = self.symmetrize(px, py, self.symmetry)
 		else:
 			rand = random()
-			px, py = symmetrize(px, py, 
+			px, py = self.symmetrize(px, py, 
 				'axial-y' if rand < 0.45 and px != BOOMLevel.WIDTH // 2 else
 				'axial-x' if rand < 0.55 and py != BOOMLevel.HEIGHT // 2 else
 				'central')
@@ -240,31 +265,24 @@ class BOOMLevel:
 		log_err("[findRegion] found {} regions.".format(len(regions)))
 		return regions
 
-	def printRegions(self):
+	def printLevelGrid(self, coloredRegions=False):
 		regions = self.findRegions()
-		string = "\033[;{}m"
-		colors = {
-			'fixed': 0,
-			'player1': 33,
-			'player2': 33,
-			'breakable': 35,
-			'boss': 36
-		}
 		for i in range(BOOMLevel.HEIGHT):
 			for j in range(BOOMLevel.WIDTH):
 				g = self.grid[i][j]
 				k = [k for k, v in tiles.items() if v == g or any(e in g for e in v)][0]
-				if k in colors:
-					log_err("{}{}".format(string.format(colors[k]), g, end=' '))
-				else:
-					color = 31
+				if k in tilecolors:
+					log_err("{}{}{}".format(color(k), g, nocol), end=' ')
+				elif coloredRegions:
 					for r in range(len(regions)):
 						if regions[r].contains(j, i):
-							log_err("{}{}{}".format(string.format(31+r), g, "\033[;0m"), end=' ')
+							log_err("{}{}{}".format(color(31+r), g, nocol), end=' ')
 							break
 					else:
 						log_err(self.grid[i][j], end=' ')
-			log_err('')
+				else:
+					log_err(self.grid[i][j], end=' ')
+			log_err(nocol)
 	
 	# given a region, cycles on the blocks surrounding its external boundaries and
 	# changes the first fixed block it finds to a breakable one.
@@ -417,34 +435,16 @@ class BOOMLevel:
 	def genWallsRandom(self, density = None):
 		if density == None:
 			density = 1/BOOMLevel.HEIGHT // 2.
-		# FIXME create some function that retreives the correct indices to modify according
-		# to the level symmetry (it may be used in other functions as well)
-		if self.symmetry == 'axial-x':
-			for i in range(BOOMLevel.HEIGHT // 2 + 1):
-				for j in range(BOOMLevel.WIDTH):
-					if self.grid[i][j] == tiles['blank'] and random() < density:
-						self.grid[i][j] = tiles['fixed']
-						if self.grid[BOOMLevel.HEIGHT - 1-i][j] == tiles['blank']:
-							self.grid[BOOMLevel.HEIGHT - 1-i][j] = tiles['fixed']
-		elif self.symmetry == 'axial-y':
-			for i in range(BOOMLevel.HEIGHT):
-				for j in range(BOOMLevel.WIDTH // 2 + 1):
-					if self.grid[i][j] == tiles['blank'] and random() < density:
-						self.grid[i][j] = tiles['fixed']
-						if self.grid[i][BOOMLevel.WIDTH - 1-j] == tiles['blank']:
-							self.grid[i][BOOMLevel.WIDTH - 1-j] = tiles['fixed']
-		elif self.symmetry == 'central':
-			for i in range(BOOMLevel.HEIGHT // 2 + 1):
-				for j in range(BOOMLevel.WIDTH):
-					if self.grid[i][j] == tiles['blank'] and random() < density:
-						self.grid[i][j] = tiles['fixed']
-						if self.grid[BOOMLevel.HEIGHT - 1-i][BOOMLevel.WIDTH - 1-j] == tiles['blank']:
-							self.grid[BOOMLevel.HEIGHT - 1-i][BOOMLevel.WIDTH - 1-j] = tiles['blank']
-		else:
-			for i in range(BOOMLevel.HEIGHT):
-				for j in range(BOOMLevel.WIDTH):
-					if self.grid[i][j] == tiles['blank'] and random() < density:
-						self.grid[i][j] = tiles['fixed']
+		ranges = self.getRangesBasedOnSym(self.symmetry)
+		for i in ranges[0]:
+			for j in ranges[1]:
+				if self.grid[i][j] != tiles['blank'] or random() >= density:
+					continue
+				self.grid[i][j] = tiles['fixed']
+				if self.symmetry != 'none':
+					jj, ii = self.symmetrize(j, i, self.symmetry)
+					if self.grid[ii][jj] == tiles['blank']:
+						self.grid[ii][jj] = tiles['fixed']
 
 	# generic method to generate coins, breakable or enemies
 	def generate(self, what):
@@ -460,44 +460,43 @@ class BOOMLevel:
 			log_err("[generate()] unknown: {}".format(what))
 			return
 
-		if self.symmetry == 'axial-x':
-			for i in range(BOOMLevel.WIDTH // 2):
-				for j in range(BOOMLevel.WIDTH):
-					if random() < prob:
-						if what == 'enemies':
-							block = self.spawnEnemy()
-						if self.grid[i][j] == tiles['blank']:
-							self.grid[i][j] = block
-						if self.grid[BOOMLevel.HEIGHT - 1-i][j] == tiles['blank']:
-							self.grid[BOOMLevel.HEIGHT - 1-i][j] = block
-		elif self.symmetry == 'axial-y':
-			for i in range(BOOMLevel.HEIGHT):
-				for j in range(8):
-					if random() < prob:
-						if what == 'enemies':
-							block = self.spawnEnemy()
-						if self.grid[i][j] == tiles['blank']:
-							self.grid[i][j] = block
-						if self.grid[i][BOOMLevel.WIDTH - 1-j] == tiles['blank']:
-							self.grid[i][BOOMLevel.WIDTH - 1-j] = block
-		elif self.symmetry == 'central':
-			for i in range(BOOMLevel.WIDTH // 2):
-				for j in range(BOOMLevel.WIDTH):
-					if random() < prob:
-						if what == 'enemies':
-							block = self.spawnEnemy()
-						if self.grid[i][j] == tiles['blank']:
-							self.grid[i][j] = block
-						if self.grid[BOOMLevel.HEIGHT - 1-i][BOOMLevel.WIDTH - 1-j] == tiles['blank']:
-							self.grid[BOOMLevel.HEIGHT - 1-i][BOOMLevel.WIDTH - 1-j] = block
-		else:
-			for i in range(BOOMLevel.HEIGHT):
-				for j in range(BOOMLevel.WIDTH):
-					if random() < prob:
-						if what == 'enemies':
-							block = self.spawnEnemy()
-						if self.grid[i][j] == tiles['blank']:
-							self.grid[i][j] = block
+		ranges = self.getRangesBasedOnSym(self.symmetry)
+		for i in ranges[0]:
+			for j in ranges[1]:
+				if random() >= prob:
+					continue
+				if what == 'enemies':
+					block = self.spawnEnemy()
+				if self.grid[i][j] == tiles['blank']:
+					self.grid[i][j] = block
+				if self.symmetry != 'none':
+					jj, ii = self.symmetrize(j, i, self.symmetry)
+					if self.grid[ii][jj] == tiles['blank']:
+						self.grid[ii][jj] = block
+
+	def checkUnreachable(self):
+		for i in range(BOOMLevel.HEIGHT):
+			for j in range(BOOMLevel.WIDTH):
+				if self.grid[i][j] == tiles['fixed']:
+					continue
+				neigh =  self.neighbours(i, j)
+				if not 0 in neigh:
+					log_err("spot x, y = {}, {} is unreachable!".format(j, i))
+					self.printLevelGrid()
+					k = randint(0, 3)
+					while neigh[k] != 1:
+						k = randint(0, 3)
+					if k == 0:
+						self.grid[i+1][j] = tiles['breakable']
+					elif k == 1:
+						self.grid[i][j+1] = tiles['breakable']
+					elif k == 2:
+						self.grid[i-1][j] = tiles['breakable']
+					elif k == 3:
+						self.grid[i][j-1] = tiles['breakable']
+					log_err("Fixed:\n")
+					self.printLevelGrid()
+
 
 	def genGridDescString(self):
 		# choose a symmetry
@@ -598,50 +597,28 @@ class BOOMLevel:
 
 		if not (p1found and p2found):
 			self.printLevelGrid()
-		assert p1found and p2found
+		assert p1found and p2found # make it crash
 
 		# TODO: ensure players are in a safe starting place
 		self.securePlayer(p1Coords)
 		self.securePlayer(p2Coords)
 
 		# (re-)check no spot is unreachable
-		for i in range(BOOMLevel.HEIGHT):
-			for j in range(BOOMLevel.WIDTH):
-				if self.grid[i][j] == tiles['fixed']:
-					continue
-				neigh =  self.neighbours(i, j)
-				if not 0 in neigh:
-					log_err("spot x, y="+str(j)+", "+str(i)+" is unreachable!\n")
-					self.printLevelGrid()
-					k = randint(0, 3)
-					while neigh[k] != 1:
-						k = randint(0, 3)
-					if k == 0:
-						self.grid[i+1][j] = tiles['breakable']
-					elif k == 1:
-						self.grid[i][j+1] = tiles['breakable']
-					elif k == 2:
-						self.grid[i-1][j] = tiles['breakable']
-					elif k == 3:
-						self.grid[i][j-1] = tiles['breakable']
-					log_err("Fixed:\n")
-					self.printLevelGrid()
+		self.checkUnreachable()
 		
 		# final step: convert grid to string
-		string = ''
-		for i in range(BOOMLevel.HEIGHT):
-			for j in range(BOOMLevel.WIDTH):
-				string += self.grid[i][j]
+		string = ''.join(self.grid[i][j] for i in range(BOOMLevel.HEIGHT) for j in range(BOOMLevel.WIDTH))
 		return string
 		
 	def genLastLevel(self):
 		string = ''
 		# put p1 in first line
 		rand = randint(0, BOOMLevel.WIDTH)
-		string += ''.join([tiles['blank'] for i in range(rand)]) + tiles['player1'] + ''.join([tiles['blank'] for i in range(rand+1, BOOMLevel.WIDTH)])
+		string += ''.join(tiles['blank'] for i in range(rand)) + tiles['player1'] + \
+				''.join(tiles['blank'] for i in range(rand+1, BOOMLevel.WIDTH))
 		# line 1 is a wall separating the Big Alien Boss from p1
 		chooseWall = lambda x: tiles['fixed'] if random() < x else tiles['breakable']
-		string += tiles['breakable']*2 + ''.join([chooseWall(0.2) for i in range(11)]) + tiles['breakable']*2
+		string += tiles['breakable']*2 + ''.join(chooseWall(0.2) for i in range(BOOMLevel.WIDTH - 4)) + tiles['breakable']*2
 		# lines 2-10 are 'reserved' for containing the Boss, so we only generate side walls
 		# line 2 is fixed
 		string += tiles['blank'] + tiles['breakable'] + tiles['blank']*11 + tiles['breakable'] + tiles['blank']
@@ -652,10 +629,11 @@ class BOOMLevel:
 			string += (tiles['blank'] if random() < 0.6 else chooseWall(0.3)) + chooseWall(0.3) + \
 				middle + chooseWall(0.3) + (tiles['blank'] if random() < 0.6 else chooseWall(0.3))
 		# now, mirror 
-		string += tiles['blank'] + tiles['breakable'] + tiles['blank']*11 + tiles['breakable'] + tiles['blank']
+		string += tiles['blank'] + tiles['breakable'] + tiles['blank']*(BOOMLevel.WIDTH - 4) + tiles['breakable'] + tiles['blank']
 		string += tiles['breakable']*2 + ''.join([chooseWall(0.2) for i in range(11)]) + tiles['breakable']*2
 		rand = randint(0, BOOMLevel.WIDTH)
-		string += ''.join([tiles['blank'] for i in range(rand)]) + tiles['player2'] + ''.join([tiles['blank'] for i in range(rand+1, BOOMLevel.WIDTH)])
+		string += ''.join(tiles['blank'] for i in range(rand)) + tiles['player2'] + \
+				''.join(tiles['blank'] for i in range(rand+1, BOOMLevel.WIDTH))
 		# fill out grid for log's sake
 		for i in range(BOOMLevel.HEIGHT):
 			for j in range(BOOMLevel.WIDTH):
@@ -682,14 +660,6 @@ class BOOMLevel:
 		print("   <integer>"+str(self.time)+"</integer>")
 		print("  </dict>")
 
-	def printLevelGrid(self):
-		for i in range(BOOMLevel.HEIGHT):
-			for j in range(BOOMLevel.WIDTH):
-				if self.grid[i][j] == tiles['fixed']:
-					log_err("\033[;32m{}\033[;0m".format(self.grid[i][j]), end=' ')
-				else:
-					log_err(self.grid[i][j], end=' ')
-			log_err('')
 class Walker:
 	def __init__(self, level, x, y):
 		self.level = level
@@ -942,5 +912,5 @@ if __name__ == '__main__':
 				difficulty = options.difficulty
 				)
 		levelGen.genLevel()
-		levelGen.printRegions()
+		levelGen.printLevelGrid(coloredRegions=True)
 	printFooter()
