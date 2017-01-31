@@ -21,8 +21,11 @@ At the moment, the choice of difficulty is quite primitive: there is a standard 
 How to use
 ==============
 Usage is pretty simple:
-<pre>./boomlevelgen.py [opts] > MyLevels.plist</pre>
-where the available <code>opts</code> are: 
+<pre>python boomlevelgen.py [opts] > MyLevels.plist</pre>
+
+The script works both with Python 2 and 3.
+
+The available <code>opts</code> are:
 <ul>
   <li>-t, --faithfulThemes: tells the script to use the original game level themes, which change every 10 levels. By default, this option is False, and the theme for the level is chosen at random;</li>
   <li>-e, --faithfulEnemies: by default, all the possible enemies may spawn in each level. If this option is passed, the script will only spawn "viable" enemies for each level, i.e. only Soldiers, Sgt. Cool and Thick Lizzy will spawn in the first 10 levels, then the Mean-O-Taur will also spawn since level 11, and so on.</li>
@@ -47,13 +50,14 @@ Next time you'll open BOOM, it will use the new levels. You can revert back to t
 
 Requires
 =============
-Tested with Python 2.7.5<br>
+Tested with Python 2.7.5, 2.7.13 and 3.6.0
+
 BOOM is only available on MacOS, though running this program only requires Python.
 
 License
 =============
     boomlevelgen.py
-    Copyright (C) 2014 Silverweed91
+    Copyright (C) 2017 Giacomo Parolini
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by

@@ -1,10 +1,9 @@
 #!/usr/bin/env python
+# Copyright (C) 2017 Giacomo Parolini (silverweed)
 # BOOM random level generator
-# silverweed && FiMvisibl3, 2014 (updated by silverweed, 2017)
 # Generate a plist of BOOM levels.
 #
 # boomlevelgen.py
-# Copyright (C) 2017 Silverweed91
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
