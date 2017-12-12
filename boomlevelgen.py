@@ -41,6 +41,8 @@ def log_err(string, end='\n'):
 	if not quiet:
 		stderr.write(string + end)
 
+N_LEVELS = 80
+
 tiles = {
 	'player1': 'X',
 	'player2': 'Y',
@@ -63,6 +65,11 @@ tilecolors = {
 }
 nocol = "\033[;0m"
 
+SYM_NONE = 0
+SYM_AXIAL_X = 1
+SYM_AXIAL_Y = 2
+SYM_CENTRAL = 3
+
 def color(n):
 	if type(n) == int:
 		return "\033[;{}m".format(n)
@@ -81,7 +88,7 @@ class BOOMLevel:
 		self.fixedBlockID = 1
 		self.time = 1
 		self.wallsAlg = None
-		self.symmetry = 'none'
+		self.symmetry = SYM_NONE
 		self.faithfulThemes = faithfulThemes
 		self.faithfulEnemies = faithfulEnemies
 		self.difficulty = difficulty
@@ -127,20 +134,20 @@ class BOOMLevel:
 	@staticmethod
 	def symmetrize(px, py, sym):
 		'Returns (px, py) symmetric to given (px, py) according to sym'
-		return (BOOMLevel.WIDTH-1-px if sym in ('axial-y', 'central') else px, \
-			BOOMLevel.HEIGHT-1-py if sym in ('axial-x', 'central') else py)
+		return (BOOMLevel.WIDTH-1-px if sym in (SYM_AXIAL_Y, SYM_CENTRAL) else px, \
+			BOOMLevel.HEIGHT-1-py if sym in (SYM_AXIAL_X, SYM_CENTRAL) else py)
 
 	@staticmethod
 	def getRangesBasedOnSym(sym):
 		'Returns the ranges to iterate based on symmetry (yrange, xrange)'
-		return (range(BOOMLevel.HEIGHT // 2 + 1) if sym in ('axial-x', 'central') else range(BOOMLevel.HEIGHT), \
-			range(BOOMLevel.WIDTH // 2 + 1) if sym == 'axial-y' else range(BOOMLevel.WIDTH))
+		return (range(BOOMLevel.HEIGHT // 2 + 1) if sym in (SYM_AXIAL_X, SYM_CENTRAL) else range(BOOMLevel.HEIGHT), \
+			range(BOOMLevel.WIDTH // 2 + 1) if sym == SYM_AXIAL_Y else range(BOOMLevel.WIDTH))
 
 
 	def spawnPlayers(self):
 		xs = set(range(BOOMLevel.WIDTH))
 		ys = set(range(BOOMLevel.HEIGHT))
-		if self.symmetry == 'axial-x' or self.symmetry == 'central':
+		if self.symmetry in {SYM_AXIAL_X, SYM_CENTRAL}:
 			ys -= {BOOMLevel.HEIGHT // 2}
 		else:
 			xs -= {BOOMLevel.WIDTH // 2}
@@ -149,14 +156,15 @@ class BOOMLevel:
 		self.grid[py][px] = tiles['player1']
 		log_err("Spawned player 1 in x, y = {}, {}".format(px, py))
 
-		if self.symmetry in ('axial-x', 'axial-y', 'central'):
+		if self.symmetry in (SYM_AXIAL_X, SYM_AXIAL_Y, SYM_CENTRAL):
 			px, py = self.symmetrize(px, py, self.symmetry)
 		else:
 			rand = random()
 			px, py = self.symmetrize(px, py, 
-				'axial-y' if rand < 0.45 and px != BOOMLevel.WIDTH // 2 else
-				'axial-x' if rand < 0.55 and py != BOOMLevel.HEIGHT // 2 else
-				'central')
+
+				SYM_AXIAL_Y if rand < 0.45 and px != BOOMLevel.WIDTH // 2 else
+				SYM_AXIAL_X if rand < 0.55 and py != BOOMLevel.HEIGHT // 2 else
+				SYM_CENTRAL)
 
 		self.grid[py][px] = tiles['player2']
 		log_err("Spawned player 2 in x, y = {}, {}".format(px, py))
@@ -194,49 +202,50 @@ class BOOMLevel:
 		if y == 0:
 			if x == 0:
 				down = left = -1
-				up = 1 if self.grid[y+1][x] == tiles['fixed'] else 0
-				right = 1 if self.grid[y][x+1] == tiles['fixed'] else 0
+				up = +(self.grid[y+1][x] == tiles['fixed'])
+				right = +(self.grid[y][x+1] == tiles['fixed'])
 			elif x == BOOMLevel.WIDTH - 1:
 				down = right = -1
-				up = 1 if self.grid[y+1][x] == tiles['fixed'] else 0
-				left = 1 if self.grid[y][x-1] == tiles['fixed'] else 0
+				up = +(self.grid[y+1][x] == tiles['fixed'])
+				left = +(self.grid[y][x-1] == tiles['fixed'])
 			else:
 				down = -1
-				up = 1 if self.grid[y+1][x] == tiles['fixed'] else 0
-				right = 1 if self.grid[y][x+1] == tiles['fixed'] else 0
-				left = 1 if self.grid[y][x-1] == tiles['fixed'] else 0
+				up = +(self.grid[y+1][x] == tiles['fixed'])
+				right = +(self.grid[y][x+1] == tiles['fixed'])
+				left = +(self.grid[y][x-1] == tiles['fixed'])
 		elif y == BOOMLevel.HEIGHT - 1:
 			if x == 0:
 				up = left = -1
-				down = 1 if self.grid[y-1][x] == tiles['fixed'] else 0
-				right = 1 if self.grid[y][x+1] == tiles['fixed'] else 0
+				down = +(self.grid[y-1][x] == tiles['fixed'])
+				right = +(self.grid[y][x+1] == tiles['fixed'])
 			elif x == BOOMLevel.WIDTH - 1:
 				up = right = -1
-				down = 1 if self.grid[y-1][x] == tiles['fixed'] else 0
-				left = 1 if self.grid[y][x-1] == tiles['fixed'] else 0
+				down = +(self.grid[y-1][x] == tiles['fixed'])
+				left = +(self.grid[y][x-1] == tiles['fixed'])
 			else:
 				up = -1
-				down = 1 if self.grid[y-1][x] == tiles['fixed'] else 0
-				right = 1 if self.grid[y][x+1] == tiles['fixed'] else 0
-				left = 1 if self.grid[y][x-1] == tiles['fixed'] else 0
+				down = +(self.grid[y-1][x] == tiles['fixed'])
+				right = +(self.grid[y][x+1] == tiles['fixed'])
+				left = +(self.grid[y][x-1] == tiles['fixed'])
 		else:
 			if x == 0:
 				left = -1
-				up = 1 if self.grid[y+1][x] == tiles['fixed'] else 0
-				down = 1 if self.grid[y-1][x] == tiles['fixed'] else 0
-				right = 1 if self.grid[y][x+1] == tiles['fixed'] else 0
+				up = +(self.grid[y+1][x] == tiles['fixed'])
+				down = +(self.grid[y-1][x] == tiles['fixed'])
+				right = +(self.grid[y][x+1] == tiles['fixed'])
 			elif x == BOOMLevel.WIDTH - 1:
 				right = -1
-				up = 1 if self.grid[y+1][x] == tiles['fixed'] else 0
-				down = 1 if self.grid[y-1][x] == tiles['fixed'] else 0
-				left = 1 if self.grid[y][x-1] == tiles['fixed'] else 0
+				up = +(self.grid[y+1][x] == tiles['fixed'])
+				down = +(self.grid[y-1][x] == tiles['fixed'])
+				left = +(self.grid[y][x-1] == tiles['fixed'])
 			else:
-				up = 1 if self.grid[y+1][x] == tiles['fixed'] else 0
-				down = 1 if self.grid[y-1][x] == tiles['fixed'] else 0
-				right = 1 if self.grid[y][x+1] == tiles['fixed'] else 0
-				left = 1 if self.grid[y][x-1] == tiles['fixed'] else 0
+				up = +(self.grid[y+1][x] == tiles['fixed'])
+				down = +(self.grid[y-1][x] == tiles['fixed'])
+				right = +(self.grid[y][x+1] == tiles['fixed'])
+				left = +(self.grid[y][x-1] == tiles['fixed'])
 
 		return up, right, down, left
+
 	
 	def findRegions(self):
 		tmpregions = []
@@ -339,7 +348,7 @@ class BOOMLevel:
 		for i in range(max(0, py - 4), py):
 			if self.grid[i][px] in tiles['enemy']:
 				nearestEnemyY = i
-			elif self.grid[i][px] == tiles['breakable'] or self.grid[i][px] == tiles['fixed']:
+			elif self.grid[i][px] in {tiles['breakable'], tiles['fixed']}:
 				nearestWallY = i
 		if dangerousUpLeft(nearestEnemyY, nearestWallY):
 			self.grid[nearestEnemyY][px] = replacement()
@@ -349,7 +358,7 @@ class BOOMLevel:
 		for i in range(py + 1, min(BOOMLevel.HEIGHT, py + 4)):
 			if self.grid[i][px] in tiles['enemy']:
 				nearestEnemyY = i
-			elif self.grid[i][px] == tiles['breakable'] or self.grid[i][px] == tiles['fixed']:
+			elif self.grid[i][px] in {tiles['breakable'], tiles['fixed']}:
 				nearestWallY = i
 		if dangerousDownRight(nearestEnemyY, nearestWallY):
 			self.grid[nearestEnemyY][px] = replacement()
@@ -359,7 +368,7 @@ class BOOMLevel:
 		for i in range(max(0, px - 4), px):
 			if self.grid[py][i] in tiles['enemy']:
 				nearestEnemyX = i
-			elif self.grid[py][i] == tiles['breakable'] or self.grid[py][i] == tiles['fixed']:
+			elif self.grid[py][i] in {tiles['breakable'], tiles['fixed']}:
 				nearestWallX = i
 		if dangerousUpLeft(nearestEnemyX, nearestWallX):
 			self.grid[py][nearestEnemyX] = replacement()
@@ -369,7 +378,7 @@ class BOOMLevel:
 		for i in range(px + 1, min(BOOMLevel.WIDTH, px + 4)):
 			if self.grid[py][i] in tiles['enemy']:
 				nearestEnemyX = i
-			elif self.grid[py][i] == tiles['breakable'] or self.grid[py][i] == tiles['fixed']:
+			elif self.grid[py][i] in {tiles['breakable'], tiles['fixed']}:
 				nearestWallX = i
 		if dangerousDownRight(nearestEnemyX, nearestWallX):
 			self.grid[py][nearestEnemyX] = replacement()
@@ -414,7 +423,7 @@ class BOOMLevel:
 			runWalker(probx, proby)
 	
 	def genWallsRegularGrid(self):
-		if self.symmetry == 'central':
+		if self.symmetry == SYM_CENTRAL:
 			for i in range(1, BOOMLevel.HEIGHT // 2, 2):
 				for j in range(1, BOOMLevel.WIDTH // 2, 2):
 					if self.grid[i][j] == tiles['blank']:
@@ -440,7 +449,7 @@ class BOOMLevel:
 				if self.grid[i][j] != tiles['blank'] or random() >= density:
 					continue
 				self.grid[i][j] = tiles['fixed']
-				if self.symmetry != 'none':
+				if self.symmetry != SYM_NONE:
 					jj, ii = self.symmetrize(j, i, self.symmetry)
 					if self.grid[ii][jj] == tiles['blank']:
 						self.grid[ii][jj] = tiles['fixed']
@@ -468,7 +477,7 @@ class BOOMLevel:
 					block = self.spawnEnemy()
 				if self.grid[i][j] == tiles['blank']:
 					self.grid[i][j] = block
-				if self.symmetry != 'none':
+				if self.symmetry != SYM_NONE:
 					jj, ii = self.symmetrize(j, i, self.symmetry)
 					if self.grid[ii][jj] == tiles['blank']:
 						self.grid[ii][jj] = block
@@ -501,13 +510,13 @@ class BOOMLevel:
 		# choose a symmetry
 		rand = random()
 		if rand > 0.75:
-			self.symmetry = 'axial-x'
+			self.symmetry = SYM_AXIAL_X
 		elif rand > 0.5:
-			self.symmetry = 'axial-y'
+			self.symmetry = SYM_AXIAL_Y
 		elif rand > 0.25:
-			self.symmetry = 'central'
+			self.symmetry = SYM_CENTRAL
 		else:
-			self.symmetry = 'none'
+			self.symmetry = SYM_NONE
 
 		# spawn players
 		self.spawnPlayers()
@@ -531,11 +540,11 @@ class BOOMLevel:
 
 		# TODO: use level symmetry
 		for i in range(numTeleport):
-			x = randint(0, 14)
-			y = randint(0, 12)
+			x = randint(0, BOOMLevel.WIDTH - 1)
+			y = randint(0, BOOMLevel.HEIGHT - 1)
 			while self.grid[y][x] != tiles['blank']:
-				x = randint(0, 14)
-				y = randint(0, 12)
+				x = randint(0, BOOMLevel.WIDTH - 1)
+				y = randint(0, BOOMLevel.HEIGHT - 1)
 			self.grid[y][x] = tiles['teleport']
 
 
@@ -643,20 +652,17 @@ class BOOMLevel:
 		self.setParameters()
 		print("  <dict>")
 		print("   <key>BGPatternID</key>")
-		print("   <integer>"+str(self.bgPatternID)+"</integer>")
+		print("   <integer>{}</integer>".format(self.bgPatternID))
 		print("   <key>BorderID</key>")
-		print("   <integer>"+str(self.borderID)+"</integer>")
+		print("   <integer>{}</integer>".format(self.borderID))
 		print("   <key>BreakableBlockID</key>")
-		print("   <integer>"+str(self.breakableBlockID)+"</integer>")
+		print("   <integer>{}</integer>".format(self.breakableBlockID))
 		print("   <key>FixedBlockID</key>")
-		print("   <integer>"+str(self.fixedBlockID)+"</integer>")
+		print("   <integer>{}</integer>".format(self.fixedBlockID))
 		print("   <key>GridDescString</key>")
-		if self.level == 80: # last level is special 
-			print("   <string>"+self.genLastLevel()+"</string>")
-		else:
-			print("   <string>"+self.genGridDescString()+"</string>")
+		print("   <string>{}</string>".format(self.genLastLevel() if self.level == N_LEVELS else self.genGridDescString()))
 		print("   <key>Time</key>")
-		print("   <integer>"+str(self.time)+"</integer>")
+		print("   <integer>{}</integer>".format(self.time))
 		print("  </dict>")
 
 class Walker:
@@ -691,33 +697,33 @@ class Walker:
 
 	def chooseStartingDirection(self):
 		if self.y == 0: return self.up
-		elif self.y == 12: return self.down
+		elif self.y == BOOMLevel.HEIGHT - 1: return self.down
 		else:
 			if self.x < 3:
 				if self.y < 3:
 					rand = randint(1, 20)
 					if rand == 1: return self.left
 					elif rand == 2: return self.down
-					elif rand < 12: return self.up
+					elif rand < BOOMLevel.HEIGHT - 1: return self.up
 					else: return self.right
-				elif self.y > 9:
+				elif self.y > BOOMLevel.HEIGHT - 4:
 					rand = randint(1, 20)
 					if rand == 1: return self.left
 					elif rand == 2: return self.up
-					elif rand < 12: return self.down
+					elif rand < BOOMLevel.HEIGHT - 1: return self.down
 					else: return self.right
-			elif self.x > 11:
+			elif self.x > BOOMLevel.WIDTH - 4:
 				if self.y < 3:
 					rand = randint(1, 20)
 					if rand == 1: return self.right
 					elif rand == 2: return self.down
-					elif rand < 12: return self.up
+					elif rand < BOOMLevel.HEIGHT - 1: return self.up
 					else: return self.left
-				elif self.y > 9:
+				elif self.y > BOOMLevel.HEIGHT - 4:
 					rand = randint(1, 20)
 					if rand == 1: return self.right
 					elif rand == 2: return self.up
-					elif rand < 12: return self.down
+					elif rand < BOOMLevel.HEIGHT - 1: return self.down
 					else: return self.left
 			else: return randint(0, 3)
 	
@@ -738,51 +744,29 @@ class Walker:
 		return self.level.grid[y][x] == tiles['blank'] 
 	
 	def onBorder(self):
-		return self.x == 0 or self.x == 14 or self.y == 0 or self.y == 12
+		return self.x == 0 or self.x == BOOMLevel.WIDTH - 1 or self.y == 0 or self.y == BOOMLevel.HEIGHT - 1
 
 	def move(self):
 		self.x, self.y = self.nextBlock(self.direction)
 		self.nStep += 1
 	
 	def spawnBlock(self):
-		if self.level.grid[self.y][self.x] == tiles['player1'] or self.level.grid[self.y][self.x] == tiles['player2']:
+		if self.level.grid[self.y][self.x] in {tiles['player1'], tiles['player2']}:
 			return
 		rand = randint(1, 10)
 		if rand > 3:
-			self.level.grid[self.y][self.x] = tiles['fixed']
-			if self.level.symmetry == 'axial-x':
-				if self.level.grid[12-self.y][self.x] == tiles['blank'] or self.level.grid[12-self.y][self.x] == tiles['breakable']:
-					self.level.grid[12-self.y][self.x] = tiles['fixed']
-			elif self.level.symmetry == 'axial-y':
-				if self.level.grid[self.y][14-self.x] == tiles['blank'] or self.level.grid[self.y][14-self.x] == tiles['breakable']:
-					self.level.grid[self.y][14-self.x] = tiles['fixed']
-			elif self.level.symmetry == 'central':
-				if self.level.grid[12-self.y][14-self.x] == tiles['blank'] or self.level.grid[12-self.y][14-self.x] == tiles['breakable']:
-					self.level.grid[12-self.y][14-self.x] = tiles['fixed']
-
+			self.placeBlockWithSym(self.x, self.y, tiles['fixed'], {tiles['blank'], tiles['breakable']})
 		else:
-		#elif rand > 1:
-			self.level.grid[self.y][self.x] = tiles['breakable']
-			if self.level.symmetry == 'axial-x':
-				if self.level.grid[12-self.y][self.x] == tiles['blank'] or self.level.grid[12-self.y][self.x] == tiles['fixed']:
-					self.level.grid[12-self.y][self.x] = tiles['breakable']
-			elif self.level.symmetry == 'axial-y':
-				if self.level.grid[self.y][14-self.x] == tiles['blank'] or self.level.grid[self.y][14-self.x] == tiles['fixed']:
-					self.level.grid[self.y][14-self.x] = tiles['breakable']
-			elif self.level.symmetry == 'central':
-				if self.level.grid[12-self.y][14-self.x] == tiles['blank'] or self.level.grid[12-self.y][14-self.x] == tiles['fixed']:
-					self.level.grid[12-self.y][14-self.x] = tiles['breakable']
-		#else:
-		#	pass	# leave blank
+			self.placeBlockWithSym(self.x, self.y, tiles['breakable'], {tiles['blank'], tiles['fixed']})
 
 	def chooseDirection(self):		
-		pStraight = (1./(1+self.nTurn))**0.43
-		q = 1-exp(-2./3*self.nTurn)
-		pLast = q/(1+q) * (1 - pStraight)
+		pStraight = (1. / (1 + self.nTurn))**0.43
+		q = 1 - exp(-2. * self.nTurn / 3)
+		pLast = q / (1 + q) * (1 - pStraight)
 		
 		rand = random()
 		
-		if rand < pLast: 
+		if rand < pLast:
 			self.nTurn = 0
 			return self.relativeTurn(self.direction, self.lastTurn)
 		elif rand > 1 - pStraight:
@@ -796,37 +780,41 @@ class Walker:
 	# prevent newly born walkers to die too soon
 	def walkOn(self):
 		x, y = self.nextBlock(self.direction)
-		return self.level.grid[y][x] != tiles['player1'] and self.level.grid[y][x] != tiles['player2'] and random() < 1./((1+self.nStep)**2)
+		return self.level.grid[y][x] != tiles['player1'] and \
+			self.level.grid[y][x] != tiles['player2'] and \
+			random() < 1. / (1 + self.nStep)**2
 
 	def endWalk(self):
-		if randint(1, 5) > 1:
-			chosenblock = tiles['breakable']
-		else:
-			chosenblock = tiles['blank']
+		self.placeBlockWithSym(self.x, self.y,
+			tiles['breakable'] if randint(1, 5) > 1 else tiles['blank'],
+			{tiles['fixed'], tiles['blank']})
 
-		self.level.grid[self.y][self.x] = chosenblock
+	
+	def placeBlockWithSym(self, x, y, block, filterset):
+		self.level.grid[y][x] = block
 
-		if self.level.symmetry == 'axis-x':
-			if self.level.grid[12-self.y][self.x] == tiles['blank'] or self.level.grid[12-self.y][self.x] == tiles['fixed']:
-				self.level.grid[12-self.y][self.x] = chosenblock
-		elif self.level.symmetry == 'axis-y':
-			if self.level.grid[self.y][14-self.x] == tiles['blank'] or self.level.grid[self.y][14-self.x] == tiles['fixed']:
-				self.level.grid[self.y][14-self.x] = chosenblock
-		elif self.level.symmetry == 'central':
-			if self.level.grid[12-self.y][14-self.x] == tiles['blank'] or self.level.grid[12-self.y][14-self.x] == tiles['fixed']:
-				self.level.grid[12-self.y][14-self.x] = chosenblock
+		symx = BOOMLevel.WIDTH - 1 - x
+		symy = BOOMLevel.HEIGHT - 1 - y
+
+		if self.level.grid[symy][self.x] in filterset:
+			if self.level.symmetry == SYM_AXIAL_X:
+				self.level.grid[symy][self.x] = block
+			elif self.level.symmetry == SYM_AXIAL_Y:
+				self.level.grid[self.y][symx] = block
+			elif self.level.symmetry == SYM_CENTRAL:
+				self.level.grid[symy][symx] = block
 
 	def routine(self):
 		self.spawnBlock()
 		if self.nStep > 0:
 			self.direction = self.chooseDirection()
 
-		if not self.onBorder() and (self.nextIsBlank() or self.walkOn()) :
+		if not self.onBorder() and (self.nextIsBlank() or self.walkOn()):
 			self.move()
 			return True
 		else:
-			self.endWalk()	
-			log_err("Walker made "+str(self.nStep)+" steps.\n")
+			self.endWalk()
+			log_err("Walker made {} steps.".format(self.nStep))
 			return False
 			
 
@@ -841,20 +829,16 @@ class Region:
 		return (x, y) in self.pairs
 
 	def isContiguous(self, x, y):
-		for i, j in self.pairs:
-			if x == i and (y == j-1 or y == j+1) or y == j and (x == i-1 or x == i+1):
-				return True
-		return False
+		return any(
+			(x == i and (y == j-1 or y == j+1)) or
+			(y == j and (x == i-1 or x == i+1))
+			for i, j in self.pairs)
 	
 	def connectedWith(self, region):
-		for i, j in region.pairs:
-			if self.isContiguous(i, j):
-				return True
-		return False
+		return any(self.isContiguous(i, j) for i, j in region.pairs)
 	
 	def mergeWith(self, region):
-		self.pairs = list(set(self.pairs + region.pairs))			
-		return self
+		self.pairs = list(set(self.pairs + region.pairs))
 	
 	def clear(self):
 		self.pairs = []
@@ -863,32 +847,17 @@ class Region:
 		return len(self.pairs) == 0
 	
 	def leftmost(self):
-		leftm = 14
-		for x, y in self.pairs:
-			if x < leftm:
-				leftm = x
-		return leftm
+		return min(BOOMLevel.WIDTH - 1, min(self.pairs, key=lambda p: p[0])[0])
 	
 	def rightmost(self):
-		rightm = 0
-		for x, y in self.pairs:
-			if x > rightm:
-				rightm = x
-		return rightm
+		return max(0, max(self.pairs, key=lambda p: p[0])[0])
 
 	def upmost(self):
-		upm = 12
-		for x, y in self.pairs:
-			if y < upm:
-				upm = y
-		return upm
+		return min(BOOMLevel.HEIGHT - 1, min(self.pairs, key=lambda p: p[1])[1])
 	
 	def downmost(self):
-		downm = 0
-		for x, y in self.pairs:
-			if y > downm:
-				downm = y
-		return downm
+		return max(0, max(self.pairs, key=lambda p: p[1])[1])
+
 
 if __name__ == '__main__':
 	# parse options
@@ -899,8 +868,6 @@ if __name__ == '__main__':
 	parser.add_option("-d", "--difficulty", default='normal', help="Difficulty (easy, normal)")
 	options, args = parser.parse_args()
 	quiet = options.quiet
-
-	N_LEVELS = 80
 
 	printHeader()
 	for i in range(1, N_LEVELS + 1):
