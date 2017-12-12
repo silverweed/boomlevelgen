@@ -173,15 +173,15 @@ class BOOMLevel:
 		positions = []
 
 		for i in range(numBosses):
-			bx = randint(0, 11)
-			by = randint(0, 9)
+			bx = randint(0, BOOMLevel.WIDTH - 4)
+			by = randint(0, BOOMLevel.HEIGHT - 4)
 
 			occupied = lambda x, y: any(self.grid[j][i] in (tiles['player1'], tiles['player2']) \
 							for i in range(x, x + 3) for j in range(y, y + 3))
 
 			while occupied(bx, by):
-				bx = randint(0, 11)
-				by = randint(0, 9)
+				bx = randint(0, BOOMLevel.WIDTH - 4)
+				by = randint(0, BOOMLevel.HEIGHT - 4)
 			
 			self.grid[by][bx] = tiles['boss']
 			# fill 3x3 square required by this boss with P1 tokens. This ensures
