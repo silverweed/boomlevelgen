@@ -6,7 +6,7 @@ Preamble
 ============
 BOOM is an arcade game from Factor Software, similar to Bomberman, but with slightly different (and, IMHO, better) game mechanics. If you never heard of it, I suggest you looking here: http://www.factor-software.com/boom.php?lang=en. You can buy the game for about 10$ or download it free: in the latter case you'll still have access to all the levels of the game (which are 80), you just won't be able to save the game (but, hey, for hardcore gamers this is actually a good thing!). I definitely suggest you try it.
 
-UPDATE: for an open source clone of the game working on Windows and Linux too: [see my project Lifish](https://github.com/silverweed/lifish)
+**UPDATE**: the original game is not available anymore from the original site. You can either search it in abandonware sites or [download my open source clone BOOM: Remake](https://silverweed.github.io/boom/) for free (it works on Windows, Linux and Mac). If you wish to generate levels for *BOOM: Remake* you'll need to pass the `-l` flag to `boomlevelgen.py`, as it uses a different level format.
 
 About this program
 =============
@@ -30,6 +30,7 @@ The available <code>opts</code> are:
   <li>-t, --faithfulThemes: tells the script to use the original game level themes, which change every 10 levels. By default, this option is False, and the theme for the level is chosen at random;</li>
   <li>-e, --faithfulEnemies: by default, all the possible enemies may spawn in each level. If this option is passed, the script will only spawn "viable" enemies for each level, i.e. only Soldiers, Sgt. Cool and Thick Lizzy will spawn in the first 10 levels, then the Mean-O-Taur will also spawn since level 11, and so on.</li>
   <li>-v, --verbose: outputs on STDERR some additional information and the layout of each generated level.</li>
+  <li>-l, --lifish: outputs levels in Lifish format (needed to make it work with *BOOM: Remake*).</li>
 </ul>
 
 The levels are output on STDOUT, so you just need to redirect it to a file with the <code>> MyLevels.plist</code> directive. This will create a <code>MyLevels.plist</code> file, which you'll need to copy in the Resources path of your BOOM app (back up the original levels first!)
