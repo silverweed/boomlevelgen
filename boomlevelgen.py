@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (C) 2017 Giacomo Parolini (silverweed)
+# Copyright (C) 2022 silverweed
 # BOOM random level generator
 # Generate a plist of BOOM levels.
 #
