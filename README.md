@@ -23,8 +23,6 @@ How to use
 Usage is pretty simple:
 <pre>python boomlevelgen.py [opts] > MyLevels.plist</pre>
 
-The script works both with Python 2 and 3.
-
 The available <code>opts</code> are:
 <ul>
   <li>-t, --faithfulThemes: tells the script to use the original game level themes, which change every 10 levels. By default, this option is False, and the theme for the level is chosen at random;</li>
